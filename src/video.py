@@ -118,8 +118,7 @@ def clip_video(
         "OutlineColour=&H00000000,"
         "Outline=1,"
         "Shadow=0,"
-        "Alignment=2,"
-        "MarginV=50"
+        "MarginV=62"
     )
 
     start_seconds = parse_time_str(clip["start_time"])
@@ -235,12 +234,12 @@ def clip_video(
     else:
         # Standard processing
         # Add timestamp correction to the core filter
-        vf_base = filter_core + f",setpts=(PTS-{start_seconds}/TB)/1.2[outv]"
+        # vf_base = filter_core + f",setpts=(PTS-{start_seconds}/TB)/1.2[outv]"
         
         # Audio filter
-        af_base = f"asetpts=PTS-START/TB,atempo=1.2".replace("START", str(start_seconds))
+        # af_base = f"asetpts=PTS-START/TB,atempo=1.2".replace("START", str(start_seconds))
         
-        filter_str = vf_base  # vf argument only takes video filters usually, but we are using -filter_complex?
+        # filter_str = vf_base  # vf argument only takes video filters usually, but we are using -filter_complex?
         # Wait, the original code used -vf and -af separately.
         # We need to adapt. 
         # For simplicity, if NO silence removal, we keep using -vf and -af as before for minimal risk.
@@ -337,7 +336,7 @@ def clip_video(
             f"fontsize=90:fontcolor=white:"
             f"borderw=4:bordercolor=black:"
             f"x=(w-text_w)/2:y=200,"
-            f"subtitles={srt_escaped}:fontsdir=/usr/share/fonts/TTF/:force_style='{force_style}',"
+            f"{subtitle_filter}"
             f"setpts=(PTS-{start_seconds}/TB)/1.2"
         )
 
