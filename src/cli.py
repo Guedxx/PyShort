@@ -5,6 +5,7 @@ import sys
 from src.config import MODEL_DEFAULTS, load_config
 from src.parsing import parse_ai_response
 from src.providers import find_clips
+from src.transcription import transcribe_video
 from src.utils import make_safe_filename, read_srt
 from src.video import clip_video
 
@@ -26,6 +27,7 @@ def main():
     parser.add_argument("--model", default=None, help="Override AI model name")
     parser.add_argument("--config", default=None, help="Path to config TOML file")
     parser.add_argument("--remove-silence", action="store_true", help="Remove silent moments from clips")
+    parser.add_argument("--transcribe", action="store_true", help="Auto-transcribe video (requires openai-whisper)")
 
     args = parser.parse_args()
 
@@ -47,6 +49,16 @@ def main():
         print(f"SRT not found: {args.srt}")
         sys.exit(1)
 
+    # Auto-transcription logic
+    if args.transcribe and not args.srt:
+        try:
+            print("Auto-transcription enabled. Generating SRT from video audio...")
+            srt_path = transcribe_video(args.video)
+            args.srt = srt_path
+        except Exception as e:
+            print(f"Transcription failed: {e}")
+            sys.exit(1)
+
     os.makedirs(output_dir, exist_ok=True)
 
     if args.manual:
@@ -59,11 +71,11 @@ def main():
         clips = [{"start_time": start_time, "end_time": end_time, "title": title}]
         print(f"Manual mode: [{start_time} -> {end_time}] {title}")
     else:
-        # AI Mode requires SRT
+        # AI Mode requires SRT (either provided or generated)
         if not args.srt:
             print("Error: SRT file is required for AI processing mode.")
-            print("Usage for AI: short-maker video.mp4 subtitles.srt")
-            print("Usage for Manual: short-maker video.mp4 -m START END [TITLE]")
+            print("Usage: short-maker video.mp4 [subtitles.srt]")
+            print("       short-maker video.mp4 --transcribe")
             sys.exit(1)
             
         # Resolve provider: CLI flag > config > error
