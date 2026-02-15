@@ -1,0 +1,6 @@
+[ai]
+provider = "gemini"            # "openai" or "gemini"
+model = "gemini-3-pro-preview"  # Model name for the provider
+
+[output]
+dir = "./shorts_clips"
