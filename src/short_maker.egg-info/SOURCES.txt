@@ -1,0 +1,17 @@
+pyproject.toml
+src/__init__.py
+src/__main__.py
+src/cli.py
+src/config.py
+src/framing.py
+src/parsing.py
+src/prompts.py
+src/providers.py
+src/utils.py
+src/video.py
+src/short_maker.egg-info/PKG-INFO
+src/short_maker.egg-info/SOURCES.txt
+src/short_maker.egg-info/dependency_links.txt
+src/short_maker.egg-info/entry_points.txt
+src/short_maker.egg-info/requires.txt
+src/short_maker.egg-info/top_level.txt

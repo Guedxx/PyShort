@@ -103,11 +103,12 @@ def detect_silence_intervals(
 
 def clip_video(
     video_path: str,
-    srt_path: str | None,
+    srt_path: str,
     clip: dict,
     output_path: str,
     remove_silence: bool = False,
 ) -> bool:
+    srt_escaped = escape_srt_path(srt_path)
     title_escaped = escape_drawtext(clip.get("title", ""))
 
     force_style = (
@@ -149,12 +150,6 @@ def clip_video(
     # Base filter chain: split -> [bg] processing, [fg] processing -> overlay -> drawtext -> subtitles
     # Note: We do NOT include setpts here yet if removing silence
     
-    # Optional subtitles
-    subtitle_filter = ""
-    if srt_path:
-        srt_escaped = escape_srt_path(srt_path)
-        subtitle_filter = f"subtitles={srt_escaped}:fontsdir=/usr/share/fonts/TTF/:force_style='{force_style}',"
-
     filter_core = (
         f"split=2[bg][fg];"
         f"[bg]scale=-2:2560,crop=1440:2560:(iw-1440)/2:0,"
@@ -166,7 +161,7 @@ def clip_video(
         f"fontsize=90:fontcolor=white:"
         f"borderw=10:bordercolor=black:"
         f"x=(w-text_w)/2:y=200,"
-        f"{subtitle_filter}"
+        f"subtitles={srt_escaped}:fontsdir=/usr/share/fonts/TTF/:force_style='{force_style}',"
         f"drawtext=text='Watch Full Video Here \u25BC':"
         f"fontfile=/usr/share/fonts/TTF/Arialbd.TTF:"
         f"fontsize=30:fontcolor=red:"

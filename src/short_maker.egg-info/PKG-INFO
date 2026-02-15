@@ -1,0 +1,15 @@
+Metadata-Version: 2.4
+Name: short-maker
+Version: 0.1.0
+Summary: AI-powered YouTube Shorts clipper
+Requires-Python: >=3.11
+Requires-Dist: python-dotenv
+Requires-Dist: mediapipe
+Requires-Dist: opencv-python-headless
+Provides-Extra: openai
+Requires-Dist: openai; extra == "openai"
+Provides-Extra: gemini
+Requires-Dist: google-genai; extra == "gemini"
+Provides-Extra: all
+Requires-Dist: openai; extra == "all"
+Requires-Dist: google-genai; extra == "all"

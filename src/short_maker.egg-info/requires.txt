@@ -1,0 +1,13 @@
+python-dotenv
+mediapipe
+opencv-python-headless
+
+[all]
+openai
+google-genai
+
+[gemini]
+google-genai
+
+[openai]
+openai

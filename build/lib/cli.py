@@ -21,7 +21,7 @@ def main():
                           help="Manual mode: START END [TITLE] — skip AI, clip directly")
 
     parser.add_argument("video", help="Path to video file")
-    parser.add_argument("srt", nargs="?", default=None, help="Path to SRT subtitle file (optional for manual mode)")
+    parser.add_argument("srt", help="Path to SRT subtitle file")
     parser.add_argument("-d", "--output-dir", default=None, help="Output directory")
     parser.add_argument("--model", default=None, help="Override AI model name")
     parser.add_argument("--config", default=None, help="Path to config TOML file")
@@ -42,8 +42,7 @@ def main():
     if not os.path.isfile(args.video):
         print(f"Video not found: {args.video}")
         sys.exit(1)
-        
-    if args.srt and not os.path.isfile(args.srt):
+    if not os.path.isfile(args.srt):
         print(f"SRT not found: {args.srt}")
         sys.exit(1)
 
@@ -59,13 +58,6 @@ def main():
         clips = [{"start_time": start_time, "end_time": end_time, "title": title}]
         print(f"Manual mode: [{start_time} -> {end_time}] {title}")
     else:
-        # AI Mode requires SRT
-        if not args.srt:
-            print("Error: SRT file is required for AI processing mode.")
-            print("Usage for AI: short-maker video.mp4 subtitles.srt")
-            print("Usage for Manual: short-maker video.mp4 -m START END [TITLE]")
-            sys.exit(1)
-            
         # Resolve provider: CLI flag > config > error
         if args.openai:
             provider = "openai"
