@@ -20,6 +20,7 @@ class Config:
     provider: str | None = None
     model: str | None = None
     output_dir: str = "./shorts_clips"
+    remove_silence: bool = False
 
 
 def load_dotenv() -> None:
@@ -66,4 +67,5 @@ def load_config(path: str | None = None) -> Config:
         provider=ai.get("provider"),
         model=ai.get("model"),
         output_dir=output.get("dir", Config.output_dir),
+        remove_silence=output.get("remove_silence", False),
     )

@@ -25,6 +25,7 @@ def main():
     parser.add_argument("-d", "--output-dir", default=None, help="Output directory")
     parser.add_argument("--model", default=None, help="Override AI model name")
     parser.add_argument("--config", default=None, help="Path to config TOML file")
+    parser.add_argument("--remove-silence", action="store_true", help="Remove silent moments from clips")
 
     args = parser.parse_args()
 
@@ -33,6 +34,9 @@ def main():
 
     # Resolve output dir: CLI flag > config > default
     output_dir = args.output_dir or cfg.output_dir
+    
+    # Resolve remove_silence: CLI flag > config > default
+    remove_silence = args.remove_silence or cfg.remove_silence
 
     # Validate inputs
     if not os.path.isfile(args.video):
@@ -94,7 +98,7 @@ def main():
         print(f"\nClipping {i+1}/{len(clips)}: {clip['title']}")
         print(f"  {clip['start_time']} -> {clip['end_time']}")
 
-        success = clip_video(args.video, args.srt, clip, out_path)
+        success = clip_video(args.video, args.srt, clip, out_path, remove_silence=remove_silence)
         results.append({
             "title": clip["title"],
             "file": out_path,
