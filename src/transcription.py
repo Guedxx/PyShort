@@ -29,7 +29,11 @@ def transcribe_video(video_path: str, model_size: str = "medium", device: str = 
     # fp16=False allows running on CPU or older GPUs without errors
     # word_timestamps=True is required for word-level segmentation
     result = model.transcribe(video_path, fp16=(device == "cuda"), word_timestamps=True)
-    
+
+    # Free Whisper model from VRAM
+    del model
+    torch.cuda.empty_cache()
+
     # Detect language (it's in the result["language"])
     print(f"Detected language '{result['language']}'")
 

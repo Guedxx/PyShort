@@ -6,8 +6,16 @@ from src.config import MODEL_DEFAULTS, load_config
 from src.parsing import parse_ai_response
 from src.providers import find_clips
 from src.transcription import transcribe_video
-from src.utils import make_safe_filename, read_srt
+from src.utils import get_video_duration, make_safe_filename, parse_time_str, read_srt
 from src.video import clip_video
+
+
+def _find_existing_srt(video_path: str) -> str | None:
+    """Return path to existing SRT next to the video, or None."""
+    srt_path = os.path.splitext(video_path)[0] + ".srt"
+    if os.path.isfile(srt_path):
+        return srt_path
+    return None
 
 
 def main():
@@ -52,13 +60,18 @@ def main():
 
     # Auto-transcription logic
     if args.transcribe and not args.srt:
-        try:
-            print("Auto-transcription enabled. Generating SRT from video audio...")
-            srt_path = transcribe_video(args.video)
-            args.srt = srt_path
-        except Exception as e:
-            print(f"Transcription failed: {e}")
-            sys.exit(1)
+        existing = _find_existing_srt(args.video)
+        if existing:
+            print(f"Found existing SRT: {existing}")
+            args.srt = existing
+        else:
+            try:
+                print("Auto-transcription enabled. Generating SRT from video audio...")
+                srt_path = transcribe_video(args.video)
+                args.srt = srt_path
+            except Exception as e:
+                print(f"Transcription failed: {e}")
+                sys.exit(1)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -74,12 +87,17 @@ def main():
     else:
         # AI Mode requires SRT (either provided or generated)
         if not args.srt:
-            print("No SRT provided. Auto-transcribing video...")
-            try:
-                args.srt = transcribe_video(args.video)
-            except Exception as e:
-                print(f"Transcription failed: {e}")
-                sys.exit(1)
+            existing = _find_existing_srt(args.video)
+            if existing:
+                print(f"Found existing SRT: {existing}")
+                args.srt = existing
+            else:
+                print("No SRT provided. Auto-transcribing video...")
+                try:
+                    args.srt = transcribe_video(args.video)
+                except Exception as e:
+                    print(f"Transcription failed: {e}")
+                    sys.exit(1)
             
         # Resolve provider: CLI flag > config > error
         if args.openai:
@@ -113,6 +131,18 @@ def main():
         print(f"  Found {len(clips)} clips:")
         for i, clip in enumerate(clips):
             print(f"    {i+1}. [{clip['start_time']} -> {clip['end_time']}] {clip['title']}")
+
+    # Validate clip timestamps against video duration
+    duration = get_video_duration(args.video)
+    if duration > 0:
+        valid_clips = []
+        for clip in clips:
+            end_sec = parse_time_str(clip["end_time"])
+            if end_sec > duration:
+                print(f"  Skipping '{clip['title']}': end time {clip['end_time']} exceeds video duration ({duration:.0f}s)")
+            else:
+                valid_clips.append(clip)
+        clips = valid_clips
 
     # Step 3: Clip and process each segment
     results = []

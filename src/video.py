@@ -1,3 +1,4 @@
+import os
 import re
 import subprocess
 from typing import List, Tuple
@@ -108,7 +109,15 @@ def clip_video(
     output_path: str,
     remove_silence: bool = False,
 ) -> bool:
-    title_escaped = escape_drawtext(clip.get("title", ""))
+    title = clip.get("title", "")
+    words = title.split()
+    if len(words) > 4:
+        mid = (len(words) + 1) // 2
+        title_line1 = escape_drawtext(" ".join(words[:mid]))
+        title_line2 = escape_drawtext(" ".join(words[mid:]))
+    else:
+        title_line1 = escape_drawtext(title)
+        title_line2 = None
 
     force_style = (
         "FontName=Arial,"
@@ -163,17 +172,26 @@ def clip_video(
         f"x=(w-text_w)/2-20:y=h-310"
     )
 
+    title_line2_filter = (
+        f"drawtext=text='{title_line2}':"
+        f"fontfile=/usr/share/fonts/TTF/Arialbd.TTF:"
+        f"fontsize=90:fontcolor=white:"
+        f"borderw=10:bordercolor=black:"
+        f"x=(w-text_w)/2:y=310,"
+    ) if title_line2 else ""
+
     filter_core = (
         f"split=2[bg][fg];"
         f"[bg]scale=-2:2560,crop=1440:2560:(iw-1440)/2:0,"
         f"gblur=sigma=40[bg_out];"
         f"[fg]scale=2160:-2,crop=1440:ih:{crop_x_str}:0[fg_out];"
         f"[bg_out][fg_out]overlay=0:(H-h)/2,"
-        f"drawtext=text='{title_escaped}':"
+        f"drawtext=text='{title_line1}':"
         f"fontfile=/usr/share/fonts/TTF/Arialbd.TTF:"
         f"fontsize=90:fontcolor=white:"
         f"borderw=10:bordercolor=black:"
         f"x=(w-text_w)/2:y=200,"
+        f"{title_line2_filter}"
         f"{subtitle_filter}"
         f"{cta_text}"
     )
@@ -296,9 +314,9 @@ def clip_video(
             "-init_hw_device", "vaapi=va:/dev/dri/renderD128",
             "-filter_hw_device", "va",
             "-ss", clip["start_time"],
+            "-to", clip["end_time"],
             "-copyts",
             "-i", video_path,
-            "-to", clip["end_time"],
             "-filter_complex", filter_str_vaapi,
             "-map", final_v_map,
             "-map", map_a,
@@ -313,9 +331,9 @@ def clip_video(
         cpu_cmd = [
             "ffmpeg", "-y",
             "-ss", clip["start_time"],
+            "-to", clip["end_time"],
             "-copyts",
             "-i", video_path,
-            "-to", clip["end_time"],
             "-filter_complex", filter_str,
             "-map", map_v,
             "-map", map_a,
@@ -337,11 +355,12 @@ def clip_video(
             f"gblur=sigma=40[bg_out];"
             f"[fg]scale=2160:-2,crop=1440:ih:{crop_x_str}:0[fg_out];"
             f"[bg_out][fg_out]overlay=0:(H-h)/2,"
-            f"drawtext=text='{title_escaped}':"
+            f"drawtext=text='{title_line1}':"
             f"fontfile=/usr/share/fonts/TTF/Arialbd.TTF:"
             f"fontsize=90:fontcolor=white:"
-            f"borderw=4:bordercolor=black:"
+            f"borderw=10:bordercolor=black:"
             f"x=(w-text_w)/2:y=200,"
+            f"{title_line2_filter}"
             f"{subtitle_filter}"
             f"{cta_text},"
             f"setpts=(PTS-{start_seconds}/TB)/1.2"
@@ -355,9 +374,9 @@ def clip_video(
             "-init_hw_device", "vaapi=va:/dev/dri/renderD128",
             "-filter_hw_device", "va",
             "-ss", clip["start_time"],
+            "-to", clip["end_time"],
             "-copyts",
             "-i", video_path,
-            "-to", clip["end_time"],
             "-vf", vf_vaapi,
             "-c:v", "h264_vaapi",
             "-qp", "23",
@@ -371,9 +390,9 @@ def clip_video(
         cpu_cmd = [
             "ffmpeg", "-y",
             "-ss", clip["start_time"],
+            "-to", clip["end_time"],
             "-copyts",
             "-i", video_path,
-            "-to", clip["end_time"],
             "-vf", vf_base,
             "-c:v", "libx264",
             "-crf", "23",
@@ -394,6 +413,11 @@ def clip_video(
 
     if result.returncode != 0:
         print(f"  FFmpeg error:\n{(result.stderr or '')[-500:]}")
+        return False
+
+    # Catch cases where FFmpeg returns 0 but produces an empty file
+    if not os.path.isfile(output_path) or os.path.getsize(output_path) == 0:
+        print(f"  FFmpeg produced an empty output file.")
         return False
 
     return True
