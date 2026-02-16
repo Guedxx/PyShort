@@ -18,6 +18,7 @@ def main():
     ai_group = parser.add_mutually_exclusive_group()
     ai_group.add_argument("-o", "--openai", action="store_true", help="Use OpenAI")
     ai_group.add_argument("-g", "--gemini", action="store_true", help="Use Google Gemini")
+    ai_group.add_argument("-l", "--ollama", action="store_true", help="Use Ollama (local)")
     ai_group.add_argument("-m", "--manual", nargs="+", metavar=("START", "END"),
                           help="Manual mode: START END [TITLE] — skip AI, clip directly")
 
@@ -73,20 +74,24 @@ def main():
     else:
         # AI Mode requires SRT (either provided or generated)
         if not args.srt:
-            print("Error: SRT file is required for AI processing mode.")
-            print("Usage: short-maker video.mp4 [subtitles.srt]")
-            print("       short-maker video.mp4 --transcribe")
-            sys.exit(1)
+            print("No SRT provided. Auto-transcribing video...")
+            try:
+                args.srt = transcribe_video(args.video)
+            except Exception as e:
+                print(f"Transcription failed: {e}")
+                sys.exit(1)
             
         # Resolve provider: CLI flag > config > error
         if args.openai:
             provider = "openai"
         elif args.gemini:
             provider = "gemini"
+        elif args.ollama:
+            provider = "ollama"
         elif cfg.provider:
             provider = cfg.provider
         else:
-            print("No AI provider specified. Use -o/--openai, -g/--gemini, or set provider in config.toml")
+            print("No AI provider specified. Use -o/--openai, -g/--gemini, -l/--ollama, or set provider in config.toml")
             sys.exit(1)
 
         # Resolve model: --model flag > config > default for provider

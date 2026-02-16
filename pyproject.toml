@@ -13,7 +13,8 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["openai"]
 gemini = ["google-genai"]
-all = ["openai", "google-genai"]
+ollama = ["ollama"]
+all = ["openai", "google-genai", "ollama"]
 
 [project.scripts]
 short-maker = "src.cli:main"

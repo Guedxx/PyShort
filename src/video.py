@@ -154,6 +154,15 @@ def clip_video(
         srt_escaped = escape_srt_path(srt_path)
         subtitle_filter = f"subtitles={srt_escaped}:fontsdir=/usr/share/fonts/TTF/:force_style='{force_style}',"
 
+    cta_text = (
+        f"drawtext=text='Watch Full Video Here \u25BC':"
+        f"fontfile=/usr/share/fonts/TTF/Arialbd.TTF:"
+        f"fontsize=30:fontcolor=red:"
+        f"borderw=3:bordercolor=white:"
+        f"alpha='if(lt(mod(t,1),0.5),1,0)':"
+        f"x=(w-text_w)/2-20:y=h-310"
+    )
+
     filter_core = (
         f"split=2[bg][fg];"
         f"[bg]scale=-2:2560,crop=1440:2560:(iw-1440)/2:0,"
@@ -166,10 +175,7 @@ def clip_video(
         f"borderw=10:bordercolor=black:"
         f"x=(w-text_w)/2:y=200,"
         f"{subtitle_filter}"
-        f"drawtext=text='Watch Full Video Here \u25BC':"
-        f"fontfile=/usr/share/fonts/TTF/Arialbd.TTF:"
-        f"fontsize=30:fontcolor=red:"
-        f"x=(w-text_w)/2-20:y=h-310"
+        f"{cta_text}"
     )
     
     intervals = []
@@ -337,6 +343,7 @@ def clip_video(
             f"borderw=4:bordercolor=black:"
             f"x=(w-text_w)/2:y=200,"
             f"{subtitle_filter}"
+            f"{cta_text},"
             f"setpts=(PTS-{start_seconds}/TB)/1.2"
         )
 

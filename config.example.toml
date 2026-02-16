@@ -1,5 +1,5 @@
 [ai]
-provider = "gemini"            # "openai" or "gemini"
+provider = "gemini"            # "openai", "gemini", or "ollama"
 model = "gemini-3-pro-preview"  # Model name for the provider
 
 [output]

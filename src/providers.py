@@ -48,6 +48,29 @@ def find_clips(provider: str, transcript: str, model: str) -> str:
         return find_clips_openai(transcript, model)
     elif provider == "gemini":
         return find_clips_gemini(transcript, model)
+    elif provider == "ollama":
+        return find_clips_ollama(transcript, model)
+
+
+def find_clips_ollama(transcript: str, model: str) -> str:
+    try:
+        import ollama
+    except ImportError:
+        print("Install ollama: pip install ollama")
+        sys.exit(1)
+
+    try:
+        response = ollama.chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": USER_PROMPT_TEMPLATE.format(transcript=transcript)},
+            ],
+        )
+        return response["message"]["content"].strip()
+    except Exception as e:
+        print(f"Ollama error: {e}")
+        sys.exit(1)
     else:
         print(f"Unknown provider: {provider}")
         sys.exit(1)

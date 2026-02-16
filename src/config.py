@@ -7,6 +7,7 @@ from pathlib import Path
 MODEL_DEFAULTS = {
     "openai": "gpt-4o-mini",
     "gemini": "gemini-3-flash-preview",
+    "ollama": "llama3",
 }
 
 CONFIG_SEARCH_PATHS = [
