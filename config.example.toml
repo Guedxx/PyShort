@@ -1,6 +1,16 @@
+# API keys are loaded from environment variables:
+# - OPENAI_API_KEY for OpenAI
+# - GEMINI_API_KEY for Gemini
+#
+# Env files are loaded in this order:
+# 1) .env
+# 2) .env.local
+# Existing shell environment variables are not overridden.
+
 [ai]
 provider = "gemini"            # "openai", "gemini", or "ollama"
-model = "gemini-3-pro-preview"  # Model name for the provider
+model = "gemini-3-flash-preview"  # Model name for the provider
 
 [output]
 dir = "./shorts_clips"
+remove_silence = false

@@ -15,6 +15,11 @@ CONFIG_SEARCH_PATHS = [
     Path.home() / ".config" / "short-maker" / "config.toml",
 ]
 
+ENV_SEARCH_PATHS = [
+    Path(".env"),
+    Path(".env.local"),
+]
+
 
 @dataclass
 class Config:
@@ -25,14 +30,30 @@ class Config:
 
 
 def load_dotenv() -> None:
-    """Load .env.local if python-dotenv is available."""
+    """Load env vars from .env files if python-dotenv is available.
+
+    Loading order is deterministic:
+    1) .env
+    2) .env.local
+
+    Existing process environment variables are never overridden.
+    """
     try:
-        from dotenv import load_dotenv as _load
-        env_path = Path(".env.local")
-        if env_path.exists():
-            _load(env_path)
+        from dotenv import dotenv_values
     except ImportError:
-        pass
+        return
+
+    merged: dict[str, str] = {}
+    for env_path in ENV_SEARCH_PATHS:
+        if not env_path.exists():
+            continue
+        values = dotenv_values(env_path)
+        for key, value in values.items():
+            if value is not None:
+                merged[key] = value
+
+    for key, value in merged.items():
+        os.environ.setdefault(key, value)
 
 
 def load_config(path: str | None = None) -> Config:

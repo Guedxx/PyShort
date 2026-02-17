@@ -9,6 +9,8 @@ from src.transcription import transcribe_video
 from src.utils import get_video_duration, make_safe_filename, parse_time_str, read_srt
 from src.video import clip_video
 
+REQUIRED_CLIP_KEYS = ("start_time", "end_time", "title")
+
 
 def _find_existing_srt(video_path: str) -> str | None:
     """Return path to existing SRT next to the video, or None."""
@@ -16,6 +18,79 @@ def _find_existing_srt(video_path: str) -> str | None:
     if os.path.isfile(srt_path):
         return srt_path
     return None
+
+
+def _exit_with_error(message: str, code: int = 1) -> None:
+    print(message)
+    raise SystemExit(code)
+
+
+def _parse_timestamp(value: object, label: str) -> float:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{label} must be a non-empty timestamp string")
+    try:
+        return parse_time_str(value)
+    except (AttributeError, TypeError, ValueError):
+        raise ValueError(f"{label} '{value}' is not parseable")
+
+
+def _build_manual_clip(args_manual: list[str]) -> dict[str, str]:
+    start_time = args_manual[0]
+    end_time = args_manual[1]
+    title = " ".join(args_manual[2:]) if len(args_manual) > 2 else "clip"
+
+    start_sec = _parse_timestamp(start_time, "Manual start_time")
+    end_sec = _parse_timestamp(end_time, "Manual end_time")
+    if start_sec >= end_sec:
+        raise ValueError(
+            f"Manual start time must be before end time (got {start_time} >= {end_time})"
+        )
+
+    return {"start_time": start_time, "end_time": end_time, "title": title}
+
+
+def _validate_ai_clips(clips: object) -> list[dict[str, str]]:
+    if not isinstance(clips, list):
+        _exit_with_error("AI response parsing failed: expected a list of clips.")
+
+    validated: list[dict[str, str]] = []
+    for i, clip in enumerate(clips, start=1):
+        if not isinstance(clip, dict):
+            print(f"  Skipping AI clip {i}: expected object, got {type(clip).__name__}")
+            continue
+
+        missing = [k for k in REQUIRED_CLIP_KEYS if k not in clip]
+        if missing:
+            print(f"  Skipping AI clip {i}: missing keys {', '.join(missing)}")
+            continue
+
+        start_time = clip.get("start_time")
+        end_time = clip.get("end_time")
+        title = str(clip.get("title", "")).strip() or f"clip_{i}"
+
+        try:
+            start_sec = _parse_timestamp(start_time, f"AI clip {i} start_time")
+            end_sec = _parse_timestamp(end_time, f"AI clip {i} end_time")
+        except ValueError as exc:
+            print(f"  Skipping AI clip {i}: {exc}")
+            continue
+
+        if start_sec >= end_sec:
+            print(
+                f"  Skipping AI clip {i}: start_time must be before end_time "
+                f"(got {start_time} >= {end_time})"
+            )
+            continue
+
+        validated.append(
+            {
+                "start_time": str(start_time).strip(),
+                "end_time": str(end_time).strip(),
+                "title": title,
+            }
+        )
+
+    return validated
 
 
 def main():
@@ -79,11 +154,15 @@ def main():
         # Manual mode: skip AI, clip directly
         if len(args.manual) < 2:
             parser.error("-m/--manual requires at least START and END times")
-        start_time = args.manual[0]
-        end_time = args.manual[1]
-        title = args.manual[2] if len(args.manual) > 2 else "clip"
-        clips = [{"start_time": start_time, "end_time": end_time, "title": title}]
-        print(f"Manual mode: [{start_time} -> {end_time}] {title}")
+        try:
+            manual_clip = _build_manual_clip(args.manual)
+        except ValueError as exc:
+            _exit_with_error(f"Invalid manual clip: {exc}")
+        clips = [manual_clip]
+        print(
+            "Manual mode: "
+            f"[{manual_clip['start_time']} -> {manual_clip['end_time']}] {manual_clip['title']}"
+        )
     else:
         # AI Mode requires SRT (either provided or generated)
         if not args.srt:
@@ -125,10 +204,27 @@ def main():
 
         # Step 2: AI analysis
         print(f"Analyzing transcript with {provider} ({model})...")
-        raw_response = find_clips(provider, transcript, model)
+        try:
+            raw_response = find_clips(provider, transcript, model)
+        except SystemExit as exc:
+            _exit_with_error(
+                f"AI provider failed before clip parsing (exit code: {exc.code})."
+            )
+        except Exception as exc:
+            _exit_with_error(f"AI provider failed before clip parsing: {exc}")
 
-        clips = parse_ai_response(raw_response)
-        print(f"  Found {len(clips)} clips:")
+        try:
+            parsed = parse_ai_response(raw_response)
+        except SystemExit:
+            _exit_with_error("AI response parsing failed.")
+        except Exception as exc:
+            _exit_with_error(f"AI response parsing failed: {exc}")
+
+        clips = _validate_ai_clips(parsed)
+        if not clips:
+            _exit_with_error("No valid AI clips found after validation.")
+
+        print(f"  Found {len(clips)} valid clips:")
         for i, clip in enumerate(clips):
             print(f"    {i+1}. [{clip['start_time']} -> {clip['end_time']}] {clip['title']}")
 
@@ -143,6 +239,9 @@ def main():
             else:
                 valid_clips.append(clip)
         clips = valid_clips
+
+    if not clips:
+        _exit_with_error("No valid clips to process after validation and duration checks.")
 
     # Step 3: Clip and process each segment
     results = []

@@ -17,7 +17,7 @@
 - **Python 3.11+**
 - **FFmpeg**: Required for video processing.
   - On Linux (Ubuntu/Debian): `sudo apt install ffmpeg`
-- **API Keys**: You need an API key for either OpenAI or Google Gemini.
+- **API Keys**: You need an API key for either OpenAI (`OPENAI_API_KEY`) or Gemini (`GEMINI_API_KEY`).
 
 ## Installation
 
@@ -48,8 +48,14 @@
    Create a `.env` file in the project root with your API keys:
    ```env
    OPENAI_API_KEY=your_openai_key
-   GOOGLE_API_KEY=your_google_key
+   GEMINI_API_KEY=your_gemini_key
    ```
+
+   Optional: create `.env.local` for machine-specific overrides. Runtime loads env files in this order:
+   1. `.env`
+   2. `.env.local`
+
+   Existing shell environment variables are not overridden by these files.
    
    (Optional) Copy `config.example.toml` to `config.toml` to set default preferences:
    ```bash
@@ -94,8 +100,8 @@ You can define defaults in `config.toml`:
 
 ```toml
 [ai]
-provider = "gemini"            # "openai" or "gemini"
-model = "gemini-1.5-pro-latest"
+provider = "gemini"              # "openai", "gemini", or "ollama"
+model = "gemini-3-flash-preview" # Model name for the selected provider
 
 [output]
 dir = "./shorts_clips"
