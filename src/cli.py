@@ -1,4 +1,5 @@
 import argparse
+import json
 import os
 import sys
 
@@ -10,6 +11,7 @@ from src.utils import get_video_duration, make_safe_filename, parse_time_str, re
 from src.video import clip_video
 
 REQUIRED_CLIP_KEYS = ("start_time", "end_time", "title")
+CUTS_CACHE_FILENAME = "cuts.json"
 
 
 def _find_existing_srt(video_path: str) -> str | None:
@@ -47,6 +49,56 @@ def _build_manual_clip(args_manual: list[str]) -> dict[str, str]:
         )
 
     return {"start_time": start_time, "end_time": end_time, "title": title}
+
+
+def _cuts_cache_path(video_path: str) -> str:
+    video_dir = os.path.dirname(os.path.abspath(video_path)) or "."
+    return os.path.join(video_dir, CUTS_CACHE_FILENAME)
+
+
+def _load_cached_ai_response(cache_path: str) -> str | None:
+    if not os.path.isfile(cache_path):
+        return None
+
+    try:
+        with open(cache_path, "r", encoding="utf-8") as file_handle:
+            payload = json.load(file_handle)
+    except (OSError, json.JSONDecodeError) as exc:
+        print(f"Warning: Failed to read cuts cache '{cache_path}': {exc}")
+        return None
+
+    if isinstance(payload, dict) and isinstance(payload.get("response"), str):
+        return payload["response"]
+
+    if isinstance(payload, (dict, list)):
+        # Backward compatibility: allow direct JSON payloads without {"response": "..."}
+        return json.dumps(payload)
+
+    print(f"Warning: Invalid cuts cache format in '{cache_path}'.")
+    return None
+
+
+def _save_cached_ai_response(cache_path: str, response: str) -> None:
+    try:
+        with open(cache_path, "w", encoding="utf-8") as file_handle:
+            json.dump({"response": response}, file_handle, ensure_ascii=False, indent=2)
+    except OSError as exc:
+        print(f"Warning: Failed to write cuts cache '{cache_path}': {exc}")
+        return
+
+    print(f"Saved cuts cache: {cache_path}")
+
+
+def _request_ai_response(provider: str, transcript: str, model: str) -> str:
+    print(f"Analyzing transcript with {provider} ({model})...")
+    try:
+        return find_clips(provider, transcript, model)
+    except SystemExit as exc:
+        _exit_with_error(
+            f"AI provider failed before clip parsing (exit code: {exc.code})."
+        )
+    except Exception as exc:
+        _exit_with_error(f"AI provider failed before clip parsing: {exc}")
 
 
 def _validate_ai_clips(clips: object) -> list[dict[str, str]]:
@@ -202,23 +254,48 @@ def main():
         transcript = read_srt(args.srt)
         print(f"  {len(transcript)} characters read")
 
-        # Step 2: AI analysis
-        print(f"Analyzing transcript with {provider} ({model})...")
-        try:
-            raw_response = find_clips(provider, transcript, model)
-        except SystemExit as exc:
-            _exit_with_error(
-                f"AI provider failed before clip parsing (exit code: {exc.code})."
-            )
-        except Exception as exc:
-            _exit_with_error(f"AI provider failed before clip parsing: {exc}")
+        # Step 2: AI analysis (cache-aware)
+        cache_path = _cuts_cache_path(args.video)
+        cached_response = _load_cached_ai_response(cache_path)
+        used_cache = cached_response is not None
+
+        if used_cache:
+            print(f"Using cached cuts: {cache_path}")
+            raw_response = cached_response
+        else:
+            raw_response = _request_ai_response(provider, transcript, model)
 
         try:
             parsed = parse_ai_response(raw_response)
         except SystemExit:
-            _exit_with_error("AI response parsing failed.")
+            if used_cache:
+                print("Cached cuts are invalid. Regenerating with AI provider...")
+                raw_response = _request_ai_response(provider, transcript, model)
+                used_cache = False
+                try:
+                    parsed = parse_ai_response(raw_response)
+                except SystemExit:
+                    _exit_with_error("AI response parsing failed.")
+                except Exception as exc:
+                    _exit_with_error(f"AI response parsing failed: {exc}")
+            else:
+                _exit_with_error("AI response parsing failed.")
         except Exception as exc:
-            _exit_with_error(f"AI response parsing failed: {exc}")
+            if used_cache:
+                print(f"Cached cuts parsing failed: {exc}. Regenerating with AI provider...")
+                raw_response = _request_ai_response(provider, transcript, model)
+                used_cache = False
+                try:
+                    parsed = parse_ai_response(raw_response)
+                except SystemExit:
+                    _exit_with_error("AI response parsing failed.")
+                except Exception as parse_exc:
+                    _exit_with_error(f"AI response parsing failed: {parse_exc}")
+            else:
+                _exit_with_error(f"AI response parsing failed: {exc}")
+
+        if not used_cache:
+            _save_cached_ai_response(cache_path, raw_response)
 
         clips = _validate_ai_clips(parsed)
         if not clips:

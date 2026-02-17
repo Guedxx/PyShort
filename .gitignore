@@ -1,5 +1,6 @@
 .env
 .env.local
+cuts.json
 .venv/
 venv/
 config.toml

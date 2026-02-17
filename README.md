@@ -5,6 +5,7 @@
 ## Features
 
 - **AI-Powered Clipping**: Uses LLMs (OpenAI GPT or Google Gemini) to analyze subtitles and find viral-worthy hooks and stories.
+- **LLM Response Cache**: Saves AI cut suggestions to `cuts.json` beside the input video and reuses them on later runs.
 - **Auto-Transcription**: Automatically generates SRT subtitles using OpenAI Whisper if no subtitle file is provided.
 - **Smart Framing**: Detects faces in the video to automatically crop landscape (16:9) video into vertical (9:16) format, keeping the speaker in focus.
 - **Silence Removal**: Optionally removes silent moments from the clips for a faster pace.
@@ -65,6 +66,7 @@
 ## Usage
 
 Basic usage requires a video file. If no SRT file is provided, it can auto-transcribe (requires Whisper).
+If `cuts.json` exists in the same folder as the video, Short-Maker reuses it instead of requesting cuts from the LLM again.
 
 ### 1. Auto-Transcribe & Clip (AI Mode)
 Let the AI transcribe the video, analyze it, and create clips.
